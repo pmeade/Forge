@@ -279,4 +279,4 @@ System: Awaits response import
 
 ## License
 
-Private project - All rights reserved
+This project is licensed under the MIT License - see the LICENSE file for details.
