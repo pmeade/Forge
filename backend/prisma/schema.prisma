@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id           String         @id @default(uuid())
+  name         String
+  status       String         @default("active")
+  currentPhase String?        @map("current_phase")
+  budgetLimit  Decimal        @default(50.00) @map("budget_limit") @db.Decimal(10, 2)
+  budgetSpent  Decimal        @default(0) @map("budget_spent") @db.Decimal(10, 2)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  operations   Operation[]
+  contextItems ContextItem[]
+  contextRules ContextRule[]
+  conversations Conversation[]
+  gitSnapshots GitSnapshot[]
+
+  @@map("projects")
+}
+
+model Agent {
+  id             String     @id @default(uuid())
+  name           String
+  capability     String
+  basePrompt     String     @map("base_prompt") @db.Text
+  successRate    Int        @default(100) @map("success_rate")
+  totalOperations Int       @default(0) @map("total_operations")
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  operations Operation[]
+
+  @@map("agents")
+}
+
+model Operation {
+  id           String    @id @default(uuid())
+  projectId    String    @map("project_id")
+  agentId      String    @map("agent_id")
+  task         String    @db.Text
+  tool         String
+  status       String    @default("pending")
+  costEstimate Decimal   @map("cost_estimate") @db.Decimal(10, 4)
+  actualCost   Decimal?  @map("actual_cost") @db.Decimal(10, 4)
+  errorMessage String?   @map("error_message") @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at")
+  startedAt    DateTime? @map("started_at")
+  completedAt  DateTime? @map("completed_at")
+
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  agent         Agent          @relation(fields: [agentId], references: [id])
+  conversations Conversation[]
+  eventLogs     EventLog[]
+
+  @@map("operations")
+}
+
+model ContextItem {
+  id         String    @id @default(uuid())
+  projectId  String    @map("project_id")
+  name       String
+  type       String
+  content    String    @db.Text
+  filePath   String?   @map("file_path")
+  tokens     Int       @default(0)
+  usageCount Int       @default(0) @map("usage_count")
+  lastUsed   DateTime? @map("last_used")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contextRules ContextRule[]
+
+  @@map("context_items")
+}
+
+model ContextRule {
+  id            String  @id @default(uuid())
+  projectId     String  @map("project_id")
+  pattern       String?
+  action        String
+  contextItemId String? @map("context_item_id")
+  agentId       String? @map("agent_id")
+  role          String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contextItem ContextItem? @relation(fields: [contextItemId], references: [id], onDelete: Cascade)
+
+  @@map("context_rules")
+}
+
+model Conversation {
+  id          String    @id @default(uuid())
+  projectId   String    @map("project_id")
+  operationId String?   @map("operation_id")
+  role        String
+  content     String    @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  operation Operation? @relation(fields: [operationId], references: [id], onDelete: Cascade)
+
+  @@map("conversations")
+}
+
+model EventLog {
+  id          String   @id @default(uuid())
+  eventType   String   @map("event_type")
+  operationId String?  @map("operation_id")
+  data        Json
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  operation Operation? @relation(fields: [operationId], references: [id], onDelete: Cascade)
+
+  @@map("event_log")
+}
+
+model GitSnapshot {
+  id          String   @id @default(uuid())
+  projectId   String   @map("project_id")
+  commitHash  String   @map("commit_hash")
+  description String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("git_snapshots")
+}
